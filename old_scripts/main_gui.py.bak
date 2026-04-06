@@ -1,0 +1,148 @@
+import threading
+import time
+import serial
+import serial.tools.list_ports
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
+from tkinter import scrolledtext
+
+class SARControllerGUI:
+    def __init__(self, root):
+        # Window Setup
+        self.root = root
+        self.root.title("SAR Stepper Test Controller")
+        self.root.geometry("800x500")
+
+        # Serial Variables
+        self.ser = None
+        self.running = False
+
+        self.setup_ui()
+
+    def setup_ui(self):
+        # Top Frame: Connection
+        conn_frame = tb.Frame(self.root, padding=10)
+        conn_frame.pack(fill=X)
+
+        tb.Label(conn_frame, text="Serial Port:").pack(side=LEFT, padx=5)
+
+        self.port_var = tb.StringVar()
+        self.port_dropdown = tb.Combobox(conn_frame, textvariable=self.port_var, bootstyle=PRIMARY)
+        self.port_dropdown.pack(side=LEFT, padx=5, fill=X, expand=True)
+        self.refresh_ports()
+
+        self.btn_connect = tb.Button(conn_frame, text="Connect", bootstyle=SUCCESS, command=self.toggle_connection)
+        self.btn_connect.pack(side=LEFT, padx=5)
+
+
+        # Middle Frame: Controls
+        ctrl_frame = tb.Labelframe(self.root, text="Motor Controls", padding=20, bootstyle=INFO)
+        ctrl_frame.pack(fill=X, padx=10, pady=10)
+
+        self.btn_move = tb.Button(ctrl_frame, text="Move Motor (M)", bootstyle=DANGER, state=DISABLED, command=self.send_move_command)
+        self.btn_move.pack(pady=10, fill=X)
+
+        self.btn_calibrate = tb.Button(ctrl_frame, text="Calibrate (C)", bootstyle=DANGER, state=DISABLED, command=self.send_calibrate_command)
+        self.btn_calibrate.pack(pady=10, fill=X)
+
+        self.status_label = tb.Label(ctrl_frame, text="Status: Disconnected", font=("Helvetica", 10, "italic"))
+        self.status_label.pack()
+
+
+        # Bottom Frame: Log Output
+        log_frame = tb.Frame(self.root, padding=10)
+        log_frame.pack(fill=BOTH, expand=True)
+
+        tb.Label(log_frame, text="System Log:").pack(anchor=W)
+        self.log_area = scrolledtext.ScrolledText(log_frame, height=10, font=("Consolas", 9))
+        self.log_area.pack(fill=BOTH, expand=True)
+
+    def refresh_ports(self):
+        ports = [p.device for p in serial.tools.list_ports.comports()]
+        self.port_dropdown['values'] = ports
+        if ports:
+            self.port_dropdown.current(0)
+
+    def log(self, message):
+        timestamp = time.strftime("[%H:%M:%S] ")
+        self.log_area.insert(END, f"{timestamp}{message}\n")
+        self.log_area.see(END)
+
+    def toggle_connection(self):
+        if self.ser and self.ser.is_open:
+            self.disconnect()
+        else:
+            self.connect()
+    
+    def connect(self):
+        port = self.port_var.get()
+        try:
+            self.ser = serial.Serial(port, 115200, timeout=1)
+            time.sleep(2) # Arduino reset delay
+            self.ser.reset_input_buffer()
+
+            self.running = True
+            self.listen_thread = threading.Thread(target=self.listen_serial, daemon=True)
+            self.listen_thread.start()
+
+            self.btn_connect.config(text="Disconnect", bootstyle=DANGER)
+            self.btn_move.config(state=NORMAL)
+            self.btn_calibrate.config(state=NORMAL)
+            self.status_label.config(text=f"Connected to {port}", foreground="green")
+            self.log(f"Connected to {port} @ 115200 baud.")
+        except Exception as e:
+            self.log(f"Error: {e}")
+
+    def disconnect(self):
+        self.running = False
+        if self.ser:
+            self.ser.close()
+        self.btn_connect.config(text="Connect", bootstyle=SUCCESS)
+        self.btn_move.config(state=DISABLED)
+        self.btn_calibrate.config(state=DISABLED)
+        self.status_label.config(text="Status: Disconnected", foreground="white")
+        self.log("Disconnected.")
+
+    def send_move_command(self):
+        if self.ser and self.ser.is_open:
+            self.ser.write(b'M')
+            self.log(">>> Sending Move Command (M)")
+            self.btn_move.config(state=DISABLED)
+            self.status_label.config(text="Motor Moving...", foreground="orange")
+
+    def send_calibrate_command(self):
+        if self.ser and self.ser.is_open:
+            self.ser.write(b'C')
+            self.log(">>> Sending Calibrate Command (C)")
+            self.btn_calibrate.config(state=DISABLED)
+            self.status_label.config(text="Calibrating...", foreground="blue")
+
+    def listen_serial(self):
+        # Runs in background thread to listen for trigger
+        while self.running:
+            if self.ser and self.ser.in_waiting > 0:
+                try:
+                    line = self.ser.readline().decode('utf-8').strip()
+                    if not line: continue
+
+                    if line == "TRIGGER":
+                        # Use root.after to safely update GUI from thread
+                        self.root.after(0, self.handle_trigger)
+                    else:
+                        self.root.after(0, lambda l=line: self.log(f"Arduino: {l}"))
+                except Exception as e:
+                    self.root.after(0, lambda: self.log(f"Read Error: {e}"))
+            time.sleep(0.01)
+    def handle_trigger(self):
+        self.log("TRIGGER RECEIVED!")
+        self.log("[SYSTEM] Capturing Radar Pulse...")
+        # Simulate Radar Capture Delay
+        self.root.after(100, lambda: self.log("[SYSTEM] Data Saved."))
+        self.status_label.config(text="Ready for next move", foreground="green")
+        self.btn_move.config(state=NORMAL)
+
+if __name__ == "__main__":
+    # Themes: 'flatly', 'darkly', 'superhero', 'solar', etc.
+    app = tb.Window(themename='superhero')
+    gui = SARControllerGUI(app)
+    app.mainloop()

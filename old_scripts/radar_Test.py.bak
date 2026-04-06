@@ -1,0 +1,51 @@
+import acconeer.exptool as et
+from acconeer.exptool import a121
+
+# Using your current COM port
+RADAR_PORT = "COM6" 
+
+def main():
+    print(f"Connecting to Acconeer on {RADAR_PORT}...")
+    client = a121.Client.open(serial_port=RADAR_PORT)
+
+    # 1. Ultra-Low Bandwidth Config for Testing
+    sensor_config = a121.SensorConfig(
+        profile=a121.Profile.PROFILE_3, 
+        start_point=20,                 
+        num_points=100,                 
+        # REDUCED: 1 sweep instead of 10. Payload drops from 4000 to 400 bytes.
+        sweeps_per_frame=1,            
+        frame_rate=2.0, 
+    )
+
+    session_config = a121.SessionConfig(sensor_config)
+    client.setup_session(session_config)
+    client.start_session()
+
+    print("Radar is running. Grabbing 5 frames silently (no printing)...")
+
+    acquired_frames = []
+
+    # 2. The "Silent Drain" Loop
+    # Do absolutely nothing in this loop except drain the buffer.
+    try:
+        for _ in range(5): 
+            result = client.get_next()
+            acquired_frames.append(result.frame) 
+            
+    except Exception as e:
+        print(f"\n[CRASH] Failed during data grab: {e}")
+
+    # 3. Safely stop the sensor BEFORE processing the data
+    client.stop_session()
+    client.close()
+    print("Radar stopped and disconnected.")
+
+    # 4. Now that the hardware is off, we have all the time in the world to print
+    print("\n--- DATA RESULTS ---")
+    for i, frame in enumerate(acquired_frames):
+        print(f"Frame {i} shape: {frame.shape}")
+        print(f"Sample complex value: {frame[0][0]}") 
+
+if __name__ == "__main__":
+    main()

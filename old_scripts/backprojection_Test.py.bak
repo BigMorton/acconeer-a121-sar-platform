@@ -1,0 +1,30 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+X_min = 0;      # Start point of rail in mm (Azimuth Range)
+X_max = 1400;   # End point of rail in mm   (Azimuth Range)
+Y_min = 500;    # Start point of scan in mm (Ground Range)
+Y_max = 800;    # End point of scan in mm (Ground Range)
+pixelSize = 5;  # Desired pixel size in mm
+
+# Step 1 - Map the physical space into a pixel grid. This is the "image plane" for backprojection.
+
+# Calculate number of pixels
+Nx = int((X_max - X_min) / pixelSize);
+Ny = int((Y_max - Y_min) / pixelSize);
+
+# np.arange creates a list of 1D coordinates for each axis, which can be used to create a 2D grid for backprojection.
+# np.arange(start, stop, step) generates values from start to stop (exclusive) with a step size of 'step'.
+x_axis = np.arange(X_min, X_max, pixelSize)
+y_axis = np.arange(Y_min, Y_max, pixelSize)
+
+# Create a 2D grid of coordinates
+X_grid, Y_grid = np.meshgrid(x_axis, y_axis, indexing="xy")
+
+imageGrid = np.zeros_like(X_grid, dtype=complex)
+
+print(f"Grid created! The image will be {X_grid.shape[0]} pixels tall by {X_grid.shape[1]} pixels wide.")
+
+print(X_grid)
+
+# Step 2 -
