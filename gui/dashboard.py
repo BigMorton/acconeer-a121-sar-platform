@@ -189,13 +189,17 @@ class SARDashboard:
                 actual_microsteps = int(ideal_microsteps)
                 microstep_error_accumulator = ideal_microsteps - actual_microsteps
 
-                self.gantry.command_move(actual_microsteps)
+                self.gantry.command_move(-actual_microsteps)
                 
                 # Wait for TRIGGER with timeout failsafe
                 trigger_received = False
                 timeout = time.time() + 5.0 # 5 second timeout per step
                 
                 while time.time() < timeout:
+                    # SAFETY CHECK: Ensure gantry wasn't deleted by a disconnect
+                    if self.gantry is None:
+                        return
+
                     reply = self.gantry.check_for_trigger()
                     if reply == "TRIGGER":
                         trigger_received = True
