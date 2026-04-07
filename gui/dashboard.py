@@ -62,9 +62,9 @@ class SARDashboard:
         self.val_depth.grid(row=0, column=3, padx=5)
 
         tb.Label(param_frame, text="Total Scan Positions:").grid(row=0, column=4, padx=5)
-        self.val_steps = tb.Entry(param_frame, width=10)
-        self.val_steps.insert(0, "1400") # Default for 1.4m rail
-        self.val_steps.grid(row=0, column=5, padx=5)
+        self.val_positions = tb.Entry(param_frame, width=10)
+        self.val_positions.insert(0, "1400") # Default for 1.4m rail
+        self.val_positions.grid(row=0, column=5, padx=5)
 
         # CONTROLS FRAME
         ctrl_frame = tb.Frame(self.root, padding=10)
@@ -98,7 +98,7 @@ class SARDashboard:
         self.log_area.see(END)
 
     def toggle_connection(self):
-        if self.gantry and self.gantry.is_connected:
+        if self.gantry and self.gantry.isConnected:
             self.disconnect_systems()
         else:
             self.connect_systems()
