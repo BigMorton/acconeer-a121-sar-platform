@@ -1,7 +1,8 @@
 from acconeer.exptool import a121
 
 class AcconeerRadar:
-    def __init__(self, port):
+    def __init__(self, port, log_callback=None):
+        self.log = log_callback if log_callback else print
         self.port = port
         self.client = None
         self.true_step_mm = None

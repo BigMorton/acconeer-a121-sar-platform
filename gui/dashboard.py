@@ -115,7 +115,8 @@ class SARDashboard:
         
         # Instantiate our classes
         self.gantry = GantryController(port_ard)
-        self.radar = AcconeerRadar(port_rad)
+        self.radar = AcconeerRadar(port_rad, log_callback=self.log)
+
 
         # Connect Gantry
         success_ard, msg_ard = self.gantry.connect()
