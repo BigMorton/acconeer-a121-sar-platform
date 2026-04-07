@@ -181,9 +181,11 @@ class SARDashboard:
             raw_iq_data = []
             self.log(f"Beginning {total_positions}-step SAR acquisition...")
 
+            captured_count = 0
             for step in range(total_positions):
-                if not self.is_scanning: break # Allow early abort
+                if not self.is_scanning: break 
 
+                # 1. MOVE THE MOTOR
                 # Calculate microsteps for this position, including error compensation
                 ideal_microsteps = microsteps_per_position + microstep_error_accumulator
                 actual_microsteps = int(ideal_microsteps)
@@ -191,32 +193,41 @@ class SARDashboard:
 
                 self.gantry.command_move(-actual_microsteps)
                 
-                # Wait for TRIGGER with timeout failsafe
+                # 2. WAIT FOR ARDUINO TRIGGER (Ensures motor has stopped)
                 trigger_received = False
-                timeout = time.time() + 5.0 # 5 second timeout per step
-                
+                timeout = time.time() + 5.0
                 while time.time() < timeout:
-                    # SAFETY CHECK: Ensure gantry wasn't deleted by a disconnect
-                    if self.gantry is None:
-                        return
-
-                    reply = self.gantry.check_for_trigger()
-                    if reply == "TRIGGER":
+                    if self.gantry.check_for_trigger() == "TRIGGER":
                         trigger_received = True
                         break
                     time.sleep(0.01)
 
                 if not trigger_received:
-                    self.log(f"ERROR: Step {step} timed out waiting for Arduino.")
-                    raise Exception("Motor Timeout")
+                    self.log(f"ERROR: Step {step} Motor Timeout")
+                    raise Exception("Gantry Stall")
 
-                # Grab frame instantly
-                frame = self.radar.grab_frame()
+                # 3. DRAIN THE BUFFER & GRAB FRESH IQ DATA
+                self.radar.flush_buffer()
+                # We grab and discard any 'stale' frames that happened during movement
+                frame = None
+                grab_attempts = 0
+                
+                while frame is None and grab_attempts < 10:
+                    # get_next() is a 'blocking' call; it waits for the next IQ frame
+                    frame = self.radar.grab_frame()
+                    if frame is None:
+                        grab_attempts += 1
+                        time.sleep(0.02)
+
                 if frame is not None:
-                    raw_iq_data.append(frame[0]) # Append the 1D array
+                    raw_iq_data.append(frame[0]) # Save the complex IQ array
+                    captured_count += 1
+                else:
+                    self.log(f"CRITICAL: Radar Timeout at Step {step}")
+                    raise Exception("Radar Stalled")
                 
                 if step % 50 == 0:
-                    self.log(f"Progress: {step}/{total_positions} steps complete.")
+                    self.log(f"Progress: {step}/{total_positions} (Valid Frames: {captured_count})")
 
             # 4. Shutdown and Save
             self.log("Scan complete. Shutting down payload...")

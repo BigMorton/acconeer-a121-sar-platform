@@ -21,7 +21,9 @@ class AcconeerRadar:
             
             # 2. Configuration
             sensor_config = a121.SensorConfig()
-            sensor_config.profile = a121.Profile.PROFILE_3 
+            sensor_config.profile = a121.Profile.PROFILE_3
+            sensor_config.sweeps_per_frame = 1  # Minimum sweeps for fastest response
+            sensor_config.frame_rate = 10.0    # 10Hz "readiness"
             
             # Map distance to hardware indices
             sensor_config.start_point = int(round(start_mm / 2.5023))
@@ -63,14 +65,36 @@ class AcconeerRadar:
         except Exception as e:
             self.stop_and_disconnect()
             return False, f"Radar setup error: {str(e)}"
+        
+    def flush_buffer(self):
+        """Quickly clears out any stale frames from the server buffer."""
+        if not self.client: return
+        
+        # We 'peek' at the buffer and pull frames until there are no more 'old' ones left.
+        # Most Acconeer buffers hold 5-10 frames.
+        flushed_count = 0
+        try:
+            # We use a non-blocking or very short timeout approach
+            while True:
+                # Setting a tiny timeout allows us to see if a frame is waiting
+                self.client.get_next() 
+                flushed_count += 1
+                if flushed_count > 15: break # Safety break
+        except Exception:
+            # When the buffer is empty, get_next() will eventually timeout/error
+            pass
                     
     def grab_frame(self):
-        try:
-            if self.client:
+        if not self.client: return None
+
+        # Try up to 3 times to get the frame 
+        for _ in range(3):
+            try:
                 result = self.client.get_next()
                 return result.frame
-        except Exception:
-            return None
+            except Exception:
+                time.sleep(0.01) # Tiny breather
+        return None
     
     def stop_and_disconnect(self):
         if self.client:
