@@ -9,7 +9,7 @@ class GantryController:
         self.isConnected = False
 
         # Calibration Parameters
-        self.total_rail_steps = 31160   # Default fallback for 1.4m rail
+        self.total_rail_microsteps = 31160   # Default fallback for 1.4m rail
         self.rail_length_mm = 1400.0       # UPDATE IF RAIL LENGTH CHANGES
 
     def connect(self):
@@ -25,7 +25,7 @@ class GantryController:
         
     def disconnect(self):
         if self.ser and self.ser.is_open:
-            self.ser_close()
+            self.ser.close()
         self.isConnected = False
 
     def command_move(self, steps):

@@ -3,8 +3,10 @@ import time
 import serial
 import serial.tools.list_ports
 import ttkbootstrap as tb
+import numpy as np 
 from ttkbootstrap.constants import *
 from tkinter import scrolledtext
+from acconeer.exptool import a121
 
 class SARControllerGUI:
     def __init__(self, root):

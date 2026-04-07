@@ -1,0 +1,16 @@
+# Virtual Environment
+stepperVenv/
+__pycache__/
+*.pyc
+
+# Data & Logs
+data/
+*.npy
+*.log
+
+# VS Code settings
+.vscode/
+
+# Firmware (PlatformIO)
+firmware/.pio/
+firmware/.vscode/
