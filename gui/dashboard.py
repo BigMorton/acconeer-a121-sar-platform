@@ -162,6 +162,8 @@ class SARDashboard:
             depth_mm = float(self.val_depth.get())
             total_positions = int(self.val_positions.get())
 
+            
+
             microsteps_per_position = self.gantry.total_rail_microsteps / total_positions
             microstep_error_accumulator = 0.0
 
@@ -228,6 +230,19 @@ class SARDashboard:
             
             self.log(f"SUCCESS: Radar Matrix {matrix.shape} saved to {filename}")
             self.log("Pass this file to your Back-Projection algorithm!")
+
+            # Save scan parameters to a JSON for reference
+            import json
+            import re
+            scan_parameters = {
+                "start_dist_mm": start_mm,
+                "depth_mm": depth_mm,
+                "total_positions": total_positions,
+                "position_step_mm": self.radar.true_step_mm
+            }
+            json_filename = re.sub(r"\.npy$", ".json", filename)
+            with open(json_filename, "w") as f:
+                json.dump(scan_parameters, f)
 
         except Exception as e:
             self.log(f"SCAN ABORTED: {e}")
