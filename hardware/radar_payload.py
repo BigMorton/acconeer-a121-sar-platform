@@ -94,12 +94,23 @@ class AcconeerRadar:
         return self.latest_frame
 
     def stop_and_disconnect(self):
-        self.stream_active = False # Kill the worker loop
-        time.sleep(0.1) # Give thread time to exit cleanly
+        self.stream_active = False # 1. Signal the thread it's time to die
         
         if self.client:
-            try: self.client.stop_session()
-            except: pass
-            try: self.client.close()
-            except: pass
-            self.client = None
+            # 2. Stop the session FIRST. 
+            # This safely interrupts the background thread if it's stuck waiting in get_next()
+            try: 
+                self.client.stop_session() 
+            except: 
+                pass
+            
+            # 3. Give the background thread time to catch the interruption and exit
+            time.sleep(0.3) 
+            
+            # 4. Now it is safe to completely destroy the client connection
+            try: 
+                self.client.close()
+            except: 
+                pass
+            
+        self.client = None
